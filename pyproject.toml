@@ -3,16 +3,16 @@ name = "ingress-fieldplan"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.9,<3.11"
+requires-python = ">=3.12"
 dependencies = [
-    "google-api-python-client>=2.188.0",
-    "googlemaps>=4.10.0",
-    "matplotlib>=3.9.4",
-    "networkx>=3.2.1",
-    "numpy>=2.0.2",
-    "oauth2client>=4.1.3",
-    "ortools>=8.0,<9.0",
-    "protobuf<3.21",
+    "google-api-python-client",
+    "googlemaps",
+    "matplotlib",
+    "networkx",
+    "numpy",
+    "oauth2client",
+    "ortools",
+    "protobuf",
 ]
 
 [project.scripts]
