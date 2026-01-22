@@ -4,7 +4,7 @@
 import sys
 import argparse
 
-from lib import gsheets, maxfield, animate
+from lib import gsheets, maxfield, animate, text_interface
 
 import logging
 import multiprocessing as mp
@@ -64,6 +64,7 @@ def queue_job(args, best, counter, ready_queue):
     failed = (False, None, None, None)
     bestmode = False
     nogood_lim = nogood_max
+    local_best = 0
 
     while True:
         with counter.get_lock():
@@ -93,6 +94,10 @@ def queue_job(args, best, counter, ready_queue):
         else:
             mybest = stats['appmin']
 
+        if mybest > local_best:
+            local_best = mybest
+            nogood = 0
+
         is_best = False
         if mybest > best.value:
             is_best = True
@@ -119,11 +124,12 @@ def queue_job(args, best, counter, ready_queue):
             if nogood > nogood_lim:
                 # start from a brand new triangle
                 maxfield.active_graph = None
-                subset = maxfield.make_subset(4)
+                subset = maxfield.make_subset(4, random_start=True)
                 mygraph = maxfield.make_subset_graph(subset)
                 bestmode = False
                 nogood_lim = nogood_max
                 nogood = 0
+                local_best = 0
                 continue
 
             if not bestmode and not bad_time:
@@ -160,8 +166,14 @@ def main():
                         'results, but will take longer to process.')
     parser.add_argument('-m', '--travelmode', default='walking',
                         help='Travel mode (walking, bicycling, driving, transit).')
-    parser.add_argument('-s', '--sheetid', default=None, required=True,
+    
+    # Input source group
+    input_group = parser.add_mutually_exclusive_group(required=True)
+    input_group.add_argument('-s', '--sheetid', default=None,
                         help='The Google Spreadsheet ID with portal definitions.')
+    input_group.add_argument('--textfile', default=None,
+                        help='A text file with portal definitions (Maxfield format).')
+
     parser.add_argument('-n', '--nosave', action='store_true', default=False,
                         help='Do not attempt to save the spreadsheet, just calculate the plan.')
     parser.add_argument('-p', '--plots', default=None,
@@ -245,9 +257,13 @@ def main():
 
     logger.addHandler(ch)
 
-    gs = gsheets.setup()
+    gs = None
+    if args.sheetid:
+        gs = gsheets.setup()
+        portals, waypoints = gsheets.get_portals_from_sheet(gs, args.sheetid)
+    else:
+        portals, waypoints = text_interface.get_portals_from_file(args.textfile)
 
-    portals, waypoints = gsheets.get_portals_from_sheet(gs, args.sheetid)
     logger.info('Considering %d portals and %s waypoints', len(portals), len(waypoints))
 
     # Stick some things into maxfield so we don't
@@ -397,7 +413,11 @@ def main():
     if args.jsonmap:
         animate.make_json(args.jsonmap, args.faction)
 
-    gsheets.write_workplan(gs, args.sheetid, bestgraph, bestplan, beststats, args.faction, args.travelmode, args.nosave)
+    if gs:
+        gsheets.write_workplan(gs, args.sheetid, bestgraph, bestplan, beststats, args.faction, args.travelmode, args.nosave)
+    else:
+        logger.info('Skipping spreadsheet update (text file mode).')
+        text_interface.write_workplan(args.textfile, bestgraph, bestplan, beststats, args.faction, args.travelmode)
 
 
 if __name__ == "__main__":

@@ -185,13 +185,13 @@ def populate_graphs(portals, waypoints):
     global portal_graph
     global waypoint_graph
     global active_graph
-    a = populate_graph(portals)
+    a, basis = populate_graph(portals)
     # a graph with just portals
     portal_graph = a
     # Make a master graph that contains both portals and waypoints
     combined_graph = a.copy()
     if waypoints:
-        waypoint_graph = populate_graph(waypoints)
+        waypoint_graph, _ = populate_graph(waypoints, basis=basis)
         extend_graph_with_waypoints(combined_graph)
 
 
@@ -208,7 +208,7 @@ def extend_graph_with_waypoints(a):
         master_num += 1
 
 
-def populate_graph(portals):
+def populate_graph(portals, basis=None):
     a = nx.DiGraph()
     locs = []
 
@@ -232,7 +232,12 @@ def populate_graph(portals):
     # gnomonic projection
     locs = geometry.e6LLtoRads(locs)
     xyz = geometry.radstoxyz(locs)
-    xy = geometry.gnomonicProj(locs, xyz)
+    
+    if basis is None:
+        basis = xyz.mean(0)
+        basis /= np.linalg.norm(basis)
+
+    xy = geometry.gnomonicProj(locs, xyz, basexyz=basis)
 
     for i in range(n):
         a.nodes[i]['pos'] = i
@@ -240,7 +245,7 @@ def populate_graph(portals):
         a.nodes[i]['xyz'] = xyz[i]
         a.nodes[i]['xy'] = xy[i]
 
-    return a
+    return a, basis
 
 
 def make_workplan(a, is_subset=False):
@@ -810,7 +815,7 @@ def triangulate(a, perim):
     return False
 
 
-def make_subset(minportals):
+def make_subset(minportals, random_start=False):
     global active_graph
     global smallest_triangle
     global largest_triangle
@@ -831,7 +836,16 @@ def make_subset(minportals):
                     if perim < sperim:
                         smallest_triangle = (p1, p2, p3)
 
-    if maxmu:
+    if random_start:
+        allp = list(range(portal_graph.order()))
+        # Ensure we have at least 3 portals
+        if len(allp) >= 3:
+            subset = list(np.random.choice(allp, 3, replace=False))
+            # Convert numpy types to native python ints
+            subset = [int(x) for x in subset]
+        else:
+            subset = list(allp)
+    elif maxmu:
         subset = list(largest_triangle)
     else:
         subset = list(smallest_triangle)

@@ -159,7 +159,7 @@ def norms(x):
     return np.sqrt(np.sum(x**2,1))
 
 
-def gnomonicProj(pts,ptsxyz=None):
+def gnomonicProj(pts,ptsxyz=None,basexyz=None):
     '''
     pts should be in lat/lng
     Uses the centroid of pts as the center, North Pole as positive y-direction
@@ -169,9 +169,10 @@ def gnomonicProj(pts,ptsxyz=None):
     if ptsxyz is None:
         ptsxyz = radstoxyz(pts)
 
-    # We'll project onto the plane tangent at base
-    basexyz = ptsxyz.mean(0)
-    basexyz /= np.linalg.norm(basexyz)
+    if basexyz is None:
+        # We'll project onto the plane tangent at base
+        basexyz = ptsxyz.mean(0)
+        basexyz /= np.linalg.norm(basexyz)
 
     base = xyztorads(basexyz).reshape(-1)
 

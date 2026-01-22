@@ -7,3 +7,9 @@ tmp_*
 credentials.json
 token.json
 *.iml
+
+.venv/
+*_plan.txt
+test_plots*/
+__pycache__/
+*.txt

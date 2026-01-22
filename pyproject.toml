@@ -7,12 +7,14 @@ requires-python = ">=3.12"
 dependencies = [
     "google-api-python-client",
     "googlemaps",
+    "imageio>=2.37.2",
     "matplotlib",
     "networkx",
     "numpy",
     "oauth2client",
     "ortools",
     "protobuf",
+    "pygifsicle>=1.1.0",
 ]
 
 [project.scripts]

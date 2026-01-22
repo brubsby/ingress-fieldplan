@@ -88,6 +88,18 @@ def make_png_steps(workplan, outdir, faction, plotdpi=96):
     ax.axis('off')
 
     ax.plot(portals[0], portals[1], 'ko')
+    
+    # Plot waypoints
+    waypoints_xy = []
+    for i in a.nodes():
+        if 'special' in a.nodes[i] and a.nodes[i]['special'] is not None:
+             waypoints_xy.append(a.nodes[i]['xy'])
+    
+    if waypoints_xy:
+        wps = np.array(waypoints_xy).T
+        # Plot waypoints as red 'X'
+        ax.plot(wps[0], wps[1], 'rx', markersize=12, markeredgewidth=2)
+
     ax.set_title('Portals before capture', ha='center')
 
     filen = os.path.join(outdir, 'step_{0:03d}.png'.format(len(frames)))
@@ -96,17 +108,27 @@ def make_png_steps(workplan, outdir, faction, plotdpi=96):
 
     p = prev_p = prev_special = None
     seen_p = list()
+    agent_marker = None
     for p, q, f in workplan:
         if p != prev_p:
             torm = list()
             special = a.nodes[p]['special']
+            p_coords = np.array(a.nodes[p]['xy']).T
+            
             if special is None:
                 # Colour this nodes captured
-                p_coords = np.array(a.nodes[p]['xy']).T
                 if faction == 'res':
                     ax.plot(p_coords[0], p_coords[1], 'bo')
                 else:
                     ax.plot(p_coords[0], p_coords[1], 'go')
+
+            # Update agent marker
+            if agent_marker is None:
+                 agent_marker, = ax.plot(p_coords[0], p_coords[1], marker='o', markersize=20, 
+                                         markeredgecolor='magenta', markerfacecolor='none', 
+                                         markeredgewidth=3, zorder=20)
+            else:
+                 agent_marker.set_data([p_coords[0]], [p_coords[1]])
 
             if prev_p is not None:
                 # Show travel edge
@@ -192,3 +214,31 @@ def make_png_steps(workplan, outdir, faction, plotdpi=96):
     frames.append(filen)
 
     logger.info('Saved step-by-step pngs into %s', outdir)
+
+    # Generate GIF
+    try:
+        import imageio
+        from pygifsicle import optimize
+        
+        gif_file = os.path.join(outdir, 'plan_movie.gif')
+        logger.info('Generating GIF animation: %s', gif_file)
+        
+        # duration is seconds per frame
+        with imageio.get_writer(gif_file, mode='I', duration=0.5, loop=0) as writer:
+            for frame in frames:
+                # imageio v3 prefers imageio.v3.imread but v2 is imageio.imread
+                # We'll use the generic read for compatibility
+                image = imageio.imread(frame)
+                writer.append_data(image)
+        
+        try:
+            optimize(gif_file)
+        except FileNotFoundError:
+             logger.warning("gifsicle not found, skipping optimization.")
+        except Exception as e:
+            logger.warning("Could not optimize GIF: %s", e)
+            
+    except ImportError as e:
+        logger.warning("Could not generate GIF (missing libraries?): %s", e)
+    except Exception as e:
+        logger.error("Error generating GIF: %s", e)
